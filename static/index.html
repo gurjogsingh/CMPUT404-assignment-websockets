@@ -6,7 +6,7 @@
     <meta content='width=device-width; height=device-height; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;' name='viewport' />
     <meta name="viewport" content="width=device-width" />
     <meta name="license" content="
-        Copyright 2013 Google, Abram Hindle
+        Copyright 2022 Gurjog Singh 2013 Google, Abram Hindle
         
         Licensed under the Apache License, Version 2.0 (the "License");
         you may not use this file except in compliance with the License.
@@ -34,7 +34,40 @@ var context = canvas.getContext("2d");
 var W = canvas.width  = window.innerWidth-6;
 var H = canvas.height = window.innerHeight-50;
 var wscounter = 0;
-var socket;
+
+var url = "ws://"+host+"/subscribe";   
+    const socket = new WebSocket(url);
+    socket.onopen = function() {
+        //XXX: TODO What are you going to do here?
+        //setInterval( socket.send(JSON.stringify((world))) , 1000);
+    };
+    socket.onerror = function(msg) {
+        debug("WebSocket Error:" + msg.data);
+    };
+    socket.onmessage = function(msg) {  
+        try {
+            //debug("WebSocket Recv:" + msg.data);
+            //console.log("WebSocket Recv:" + msg.data);
+            //XXX: TODO What are you going to do here? 
+            world = JSON.parse(msg.data) 
+            update()          
+        } catch (e) {
+            alert("socket on message: " + e);
+        }
+    }; 
+
+
+drawField();
+
+function drawField(){
+    //how to add image - https://www.w3schools.com/tags/canvas_drawimage.asp (Copyright 1999-2022 by Refsnes Data. All Rights Reserved.)
+    var img = new Image();
+    img.src = 'court.jpg';
+    img.onload = () => {
+        context.drawImage(img, 0,0, canvas.width,canvas.height);
+    }
+}
+
 
 function debug(str) {
     var debugDiv = document.getElementById('debug');
@@ -47,40 +80,47 @@ world = {};
 //XXX: TODO Make this prettier!
 function drawCircle(context,entity) {
     with(context) {
-        beginPath();                
+        beginPath();              
         lineWidth = 3;
         var x = entity["x"];
         var y = entity["y"];
         //moveTo(x,y);
-        fillStyle = entity["colour"];
-        strokeStyle = fillStyle;
-        arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);  
-        stroke();                                
+         //how to add image - https://www.w3schools.com/tags/canvas_drawimage.asp (Copyright 1999-2022 by Refsnes Data. All Rights Reserved.)
+        var img = new Image();
+        img.src = 'bball.png';
+        img.onload = function() {
+            //how to display ball - https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/createPattern 
+            //(Portions of this content are ©1998–2022 by individual mozilla.org contributors. Content available under a Creative Commons license.)
+            var pattern = basketball = context.createPattern(img, 'repeat');
+            //fillStyle = entity["colour"];
+            fillStyle = pattern; 
+        }
+        //strokeStyle = fillStyle;
+        //arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);  
+        drawImage(img, x, y, 50, 50);                              
     }
 }
 
 function prepEntity(entity) {
-    if (!entity["colour"]) {
+    /* if (!entity["colour"]) {
         entity["colour"] = "#FF0000";
     }
     if (!entity["radius"]) {
         entity["radius"] = 50;
-    }
+    } */
     return entity;
 }
 
 function clearFrame() {
     with(context) {
-	moveTo(0,0);
-	fillStyle = "#000";
-	fillRect(0,0,W,H);
+        drawField()
     }
 
 }
 
 // This actually draws the frame
 function renderFrame() {
-    clearFrame();
+    //clearFrame();
     for (var key in world) {
         var entity = world[key];
         drawCircle(context,prepEntity(entity));
@@ -123,8 +163,23 @@ function getPosition(e) {
 
 function addEntity(entity, data) {
     world[entity] = data;
+    var dataSend = {}
+    dataSend[entity]=  data
+    socket.send(JSON.stringify((dataSend)))
+    dataSend = {}
     drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just modified!
+   /*  var xhr = new XMLHttpRequest();
+    xhr.open("PUT", '/entity/' + entity, true)
+
+    //how to send header using XMLHttpRequest - https://stackoverflow.com/a/9713078 (CC-BY-SA 4.0, Ed Heal and rkachach)
+    xhr.setRequestHeader('Content-type', 'application/json');
+    xhr.setRequestHeader('Accept', 'application/json');
+    //XXX: POST to a URL
+    //XXX: set the mimetype and the accept headers!
+    // Remember to use application/json !
+    //console.log("DATA: ", data);
+    xhr.send(JSON.stringify(data)); */
 }
 var counter = 0;
 function addEntityWithoutName(data) {
@@ -231,50 +286,70 @@ mouse = (function() {
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    addEntityWithoutName({'x':x,'y':y});
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    addEntityWithoutName({'x':x,'y':y});
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
-                          'radius':10});
+    addEntityWithoutName({'x':x,'y':y});
 });
 
 
 function update() {
     drawFrame();
+    /* let xhr = new XMLHttpRequest();
+    let url = location.host;
+    //console.log("YOURL: ", url);
+    xhr.open('GET', '/world', true);
+
+    xhr.onload = function() {
+        if (xhr.status == 200) {
+            if (JSON.parse(this.response) !== undefined){
+                world = JSON.parse(this.response)
+            }  
+        }
+    }
+    xhr.send()
+    if (JSON.stringify(world).length === 2){
+        clearFrame();
+    } */
+    renderFrame()
 }
 
 
 function wsSetup() {
     var url = "ws://"+host+"/subscribe";   
-    socket = new WebSocket(url);
+    const socket = new WebSocket(url);
     socket.onopen = function() {
         //XXX: TODO What are you going to do here?
+        //setInterval( socket.send(JSON.stringify((world))) , 1000);
     };
     socket.onerror = function(msg) {
         debug("WebSocket Error:" + msg.data);
     };
     socket.onmessage = function(msg) {  
         try {
-            debug("WebSocket Recv:" + msg.data);
-            //XXX: TODO What are you going to do here?            
+            //console.log("WebSocket Recv:" + msg.data);
+            //XXX: TODO What are you going to do here? 
+            world = JSON.parse(msg.data) 
+            //console.log(world)
+            update()          
         } catch (e) {
             alert("socket on message: " + e);
         }
     }; 
 }
 
-wsSetup();
+//wsSetup();
 
 
 
 
 // 30 frames per second
-setInterval( update, 1000/30.0);
+setInterval( update, 1000/5.0);
 
 
     </script>
