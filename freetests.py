@@ -40,7 +40,7 @@ import json
 
 world = dict()
 # set this to something sane 
-calls = 150
+calls = 3000
 # ugh there's too much output? Well drop calls down
 # calls = 100
 
